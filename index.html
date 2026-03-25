@@ -3,85 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Block Blast Neon Pro</title>
+    <title>Block Blast Neon Pro Max</title>
     <style>
         :root { 
             --bg: #020617; --grid: #1e293b; --cell: #334155;
             --blue: #22d3ee; --purple: #a855f7; --rose: #fb7185; --amber: #fbbf24;
         }
         * { -webkit-tap-highlight-color: transparent; user-select: none; box-sizing: border-box; }
-        
         body { 
-            background: var(--bg); color: white; font-family: -apple-system, system-ui, sans-serif;
+            background: var(--bg); color: white; font-family: -apple-system, sans-serif;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             margin: 0; height: 100vh; width: 100vw; overflow: hidden; touch-action: none;
         }
 
-        #game-wrapper {
-            display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
-            height: 100%; width: 100%; max-width: 500px; padding: 20px;
-        }
+        #ui { text-align: center; z-index: 10; margin-top: 20px; }
+        #score { font-size: 4.5rem; font-weight: 900; text-shadow: 0 0 20px var(--blue); margin: 0; }
+        #best { font-size: 1rem; color: var(--blue); opacity: 0.8; letter-spacing: 3px; }
 
-        /* Querformat-Optimierung */
-        @media (orientation: landscape) {
-            #game-wrapper { flex-direction: row; max-width: 95%; }
-            #grid { width: 65vh; height: 65vh; }
-            #tray { flex-direction: column; width: 140px; height: 80%; }
-        }
-
-        #ui { text-align: center; }
-        #score { font-size: 4rem; font-weight: 900; text-shadow: 0 0 20px var(--blue); margin: 0; }
-        #best { font-size: 1rem; color: var(--blue); opacity: 0.8; letter-spacing: 2px; }
-        
         #grid {
             display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
             gap: 4px; background: var(--grid); padding: 10px; border-radius: 16px;
             width: 88vw; height: 88vw; max-width: 420px; max-height: 420px;
-            border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            position: relative;
         }
 
-        .cell { background: var(--cell); border-radius: 6px; transition: background 0.3s; }
-        .filled { border: 1px solid rgba(255,255,255,0.1); }
-        
-        /* Block-Farben */
+        .cell { background: var(--cell); border-radius: 6px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .cell.highlight { background: rgba(255,255,255,0.25); box-shadow: inset 0 0 15px white; }
+        .filled { border: 1px solid rgba(255,255,255,0.2); animation: pop 0.3s ease-out; }
+
+        /* Neon Block Colors */
         .c-0 { background: linear-gradient(135deg, var(--blue), #0891b2); box-shadow: 0 0 15px var(--blue); }
         .c-1 { background: linear-gradient(135deg, var(--purple), #7e22ce); box-shadow: 0 0 15px var(--purple); }
         .c-2 { background: linear-gradient(135deg, var(--rose), #be123c); box-shadow: 0 0 15px var(--rose); }
         .c-3 { background: linear-gradient(135deg, var(--amber), #b45309); box-shadow: 0 0 15px var(--amber); }
 
-        #tray { display: flex; gap: 15px; align-items: center; justify-content: center; min-height: 140px; }
+        #tray { display: flex; gap: 15px; align-items: center; justify-content: center; min-height: 150px; margin-top: 20px; }
         .piece-container { width: 100px; height: 100px; display: flex; justify-content: center; align-items: center; position: relative; }
-        .piece { display: grid; gap: 2px; position: absolute; pointer-events: none; z-index: 10; }
+        .piece { display: grid; gap: 2px; position: absolute; pointer-events: none; z-index: 100; }
         .p-cell { width: 22px; height: 22px; border-radius: 4px; }
 
         /* Animationen */
-        .blast { animation: blast 0.5s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards; }
-        @keyframes blast { 0% { transform: scale(1.1); filter: brightness(4); } 100% { transform: scale(0); opacity: 0; } }
+        @keyframes pop { 0% { transform: scale(0.8); } 100% { transform: scale(1); } }
+        .blast { animation: blast 0.6s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards; z-index: 200; }
+        @keyframes blast { 
+            0% { transform: scale(1); filter: brightness(10) blur(0px); box-shadow: 0 0 50px white; } 
+            100% { transform: scale(2); filter: brightness(1) blur(10px); opacity: 0; } 
+        }
 
         #overlay {
-            position: fixed; inset: 0; background: rgba(2, 6, 23, 0.9);
-            display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(10px);
+            position: fixed; inset: 0; background: rgba(2, 6, 23, 0.95);
+            display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 3000; backdrop-filter: blur(15px);
         }
-        .btn {
-            padding: 18px 40px; border-radius: 40px; border: none; background: white; 
-            color: black; font-weight: 800; font-size: 1.2rem; cursor: pointer; box-shadow: 0 10px 30px rgba(255,255,255,0.2);
-        }
+        .btn { padding: 20px 50px; border-radius: 50px; border: none; background: white; color: black; font-weight: 900; font-size: 1.4rem; cursor: pointer; box-shadow: 0 10px 40px var(--blue); }
     </style>
 </head>
 <body>
 
-    <div id="game-wrapper">
-        <div id="ui">
-            <div id="score">0</div>
-            <div id="best">BEST: 0</div>
-        </div>
-        <div id="grid"></div>
-        <div id="tray"></div>
+    <div id="ui">
+        <div id="score">0</div>
+        <div id="best">BEST: 0</div>
     </div>
+    
+    <div id="grid"></div>
+    <div id="tray"></div>
 
     <div id="overlay">
-        <h1 style="color:var(--rose); font-size: 3.5rem; margin: 0;">GAME OVER</h1>
-        <p id="final-score" style="font-size: 1.5rem; margin: 20px 0 40px 0;">Punkte: 0</p>
+        <h1 style="color:var(--rose); font-size: 4rem; margin-0;">GAME OVER</h1>
+        <p id="final-score" style="font-size: 2rem; margin: 20px 0 40px 0;">0</p>
         <button class="btn" onclick="init()">NEUSTART</button>
     </div>
 
@@ -101,7 +90,7 @@
             grid = Array(8).fill().map(() => Array(8).fill(null));
             score = 0; scoreEl.innerText = "0";
             document.getElementById('best').innerText = "BEST: " + (localStorage.getItem('bb_best') || 0);
-            document.getElementById('overlay').style.display = "none";
+            overlay.style.display = "none";
             gridEl.innerHTML = '';
             for (let i = 0; i < 64; i++) gridEl.appendChild(document.createElement('div')).className = 'cell';
             spawn();
@@ -129,31 +118,43 @@
             }));
             
             addDrag(cont, p, sObj);
-            cont.appendChild(p); trayEl.appendChild(cont);
+            trayEl.appendChild(cont);
+            cont.appendChild(p);
         }
 
         function addDrag(cont, el, sObj) {
-            let sX, sY, off = 120; 
+            let sX, sY, offY = 120; 
+            
             cont.addEventListener('touchstart', e => {
                 const t = e.touches[0];
-                const r = el.getBoundingClientRect();
-                sX = t.clientX - r.left; sY = t.clientY - r.top;
-                lastX = t.clientX; lastY = t.clientY;
-                el.style.position = 'fixed'; 
-                el.style.zIndex = "1000";
+                const rect = el.getBoundingClientRect();
+                sX = t.clientX - rect.left;
+                sY = t.clientY - rect.top;
+                el.style.position = 'fixed';
+                el.style.zIndex = "2000";
+                if(window.navigator.vibrate) window.navigator.vibrate(10);
             }, {passive: false});
 
             cont.addEventListener('touchmove', e => {
+                e.preventDefault();
                 const t = e.touches[0];
                 lastX = t.clientX; lastY = t.clientY;
                 el.style.left = (t.clientX - sX) + 'px';
-                el.style.top = (t.clientY - sY - off) + 'px';
+                el.style.top = (t.clientY - sY - offY) + 'px';
                 el.style.transform = 'scale(1.8)';
+
+                clearHighlights();
+                const target = document.elementFromPoint(lastX, lastY - offY);
+                if (target && target.classList.contains('cell')) {
+                    const idx = Array.from(gridEl.children).indexOf(target);
+                    showHighlight(sObj.d, Math.floor(idx / 8), idx % 8);
+                }
             }, {passive: false});
 
             cont.addEventListener('touchend', () => {
+                clearHighlights();
                 el.style.display = 'none';
-                const target = document.elementFromPoint(lastX, lastY - off);
+                const target = document.elementFromPoint(lastX, lastY - offY);
                 el.style.display = 'grid';
 
                 if (target && target.classList.contains('cell')) {
@@ -163,6 +164,7 @@
                         place(sObj, r, c);
                         cont.remove();
                         checkLines();
+                        if(window.navigator.vibrate) window.navigator.vibrate(20);
                         if (trayEl.children.length === 0) spawn();
                         else setTimeout(checkGameOver, 50);
                         return;
@@ -170,6 +172,17 @@
                 }
                 el.style.position = 'absolute'; el.style.left = 'auto'; el.style.top = 'auto'; el.style.transform = 'scale(1)';
             });
+        }
+
+        function showHighlight(s, r, c) {
+            if (!canPlace(s, r, c)) return;
+            s.forEach((row, i) => row.forEach((v, j) => {
+                if(v) gridEl.children[(r+i)*8+(c+j)].classList.add('highlight');
+            }));
+        }
+
+        function clearHighlights() {
+            Array.from(gridEl.children).forEach(c => c.classList.remove('highlight'));
         }
 
         function canPlace(s, r, c) {
@@ -197,16 +210,22 @@
             rCl.forEach(r => { for(let c=0; c<8; c++) toDel.add(`${r},${c}`); });
             cCl.forEach(c => { for(let r=0; r<8; r++) toDel.add(`${r},${c}`); });
 
-            toDel.forEach(coord => {
-                const [r, c] = coord.split(',').map(Number);
-                grid[r][c] = null;
-                const cell = gridEl.children[r*8+c];
-                cell.classList.add('blast');
-                setTimeout(() => cell.className = 'cell', 500);
-            });
             if(toDel.size > 0) {
-                score += toDel.size * 10; scoreEl.innerText = score;
-                saveHighscore();
+                let comboMultiplier = (rCl.length + cCl.length);
+                score += toDel.size * 10 * comboMultiplier;
+                scoreEl.innerText = score;
+                if(window.navigator.vibrate) window.navigator.vibrate([30, 50, 30]);
+                
+                toDel.forEach(coord => {
+                    const [r, c] = coord.split(',').map(Number);
+                    grid[r][c] = null;
+                    const cell = gridEl.children[r*8+c];
+                    cell.classList.add('blast');
+                    setTimeout(() => cell.className = 'cell', 600);
+                });
+                
+                let best = localStorage.getItem('bb_best') || 0;
+                if(score > best) localStorage.setItem('bb_best', score);
             }
         }
 
@@ -219,14 +238,9 @@
                 return false;
             });
             if(!ok) {
-                document.getElementById('final-score').innerText = "Score: " + score;
-                document.getElementById('overlay').style.display = "flex";
+                document.getElementById('final-score').innerText = "SCORE: " + score;
+                overlay.style.display = "flex";
             }
-        }
-
-        function saveHighscore() {
-            let current = localStorage.getItem('bb_best') || 0;
-            if(score > current) localStorage.setItem('bb_best', score);
         }
 
         init();
