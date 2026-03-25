@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Block Blast</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:       #05080f;
+            --surface:  #0d1526;
+            --border:   #1a2a44;
+            --cell:     #111d33;
+            --glow-b:   #00eaff;
+            --glow-p:   #b06cff;
+            --glow-r:   #ff4d6d;
+            --glow-y:   #ffd166;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            background-image:
+                radial-gradient(ellipse 80% 60% at 20% 0%, #0a1f3a 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 80% 100%, #120a2e 0%, transparent 60%);
+            color: white;
+            font-family: 'Space Mono', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+            gap: 16px;
+        }
+
+        /* ── Header ─────────────────────────────────────────── */
+        #header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: min(92vw, 400px);
+        }
+
+        .score-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 20px;
+            min-width: 110px;
+        }
+        .score-label { font-size: 0.55rem; letter-spacing: 0.2em; opacity: 0.45; margin-bottom: 2px; }
+        .score-value { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 900; line-height: 1; }
+        #score-val { color: var(--glow-b); text-shadow: 0 0 18px var(--glow-b); }
+        #best-val  { color: var(--glow-p); text-shadow: 0 0 18px var(--glow-p); }
+
+        .title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-align: center;
+            line-height: 1.3;
+            opacity: 0.7;
+        }
+
+        /* ── Grid ────────────────────────────────────────────── */
+        #grid-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 10px;
+            box-shadow: 0 0 40px rgba(0,234,255,0.06), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+            width: min(86vw, 370px);
+            height: min(86vw, 370px);
+        }
+
+        .cell {
+            background: var(--cell);
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.03);
+            transition: background 0.15s, box-shadow 0.15s;
+        }
+
+        .cell.preview {
+            background: rgba(255,255,255,0.18) !important;
+            box-shadow: 0 0 10px rgba(255,255,255,0.4) !important;
+            border-color: rgba(255,255,255,0.5) !important;
+        }
+        .cell.preview-bad {
+            background: rgba(255,80,80,0.25) !important;
+            box-shadow: 0 0 8px rgba(255,80,80,0.4) !important;
+        }
+
+        /* Block colours */
+        .c-blue   { background: linear-gradient(135deg,#00eaff,#0077aa); box-shadow: 0 0 10px #00eaff99; border-color:#00eaff44; }
+        .c-purple { background: linear-gradient(135deg,#b06cff,#6600cc); box-shadow: 0 0 10px #b06cff99; border-color:#b06cff44; }
+        .c-rose   { background: linear-gradient(135deg,#ff4d6d,#aa0033); box-shadow: 0 0 10px #ff4d6d99; border-color:#ff4d6d44; }
+        .c-amber  { background: linear-gradient(135deg,#ffd166,#bb6600); box-shadow: 0 0 10px #ffd16699; border-color:#ffd16644; }
+
+        /* Animations */
+        @keyframes place  { 0%{transform:scale(1.4);filter:brightness(2.5)} 100%{transform:scale(1);filter:brightness(1)} }
+        @keyframes clear  { 0%{transform:scale(1.1);filter:brightness(3)} 60%{transform:scale(0.8);opacity:.6} 100%{transform:scale(0);opacity:0} }
+        @keyframes pop-in { 0%{transform:scale(0) rotate(-10deg);opacity:0} 80%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+        @keyframes shake  { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+        @keyframes fade-score { 0%{transform:translateY(0);opacity:1} 100%{transform:translateY(-40px);opacity:0} }
+
+        .anim-place { animation: place .25s ease-out; }
+        .anim-clear { animation: clear .45s ease-in forwards; }
+        .anim-pop   { animation: pop-in .35s cubic-bezier(.34,1.56,.64,1) both; }
+
+        /* ── Tray ────────────────────────────────────────────── */
+        #tray {
+            display: flex;
+            gap: 10px;
+            height: 90px;
+            align-items: center;
+            justify-content: center;
+            width: min(92vw, 400px);
+        }
+
+        .piece-slot {
+            flex: 1;
+            max-width: 115px;
+            height: 90px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            position: relative;
+        }
+        .piece-slot.empty { opacity: 0.3; }
+
+        .piece {
+            display: grid;
+            gap: 3px;
+            pointer-events: none;
+            transform-origin: center;
+        }
+        .p-cell {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+
+        /* floating drag clone */
+        #drag-clone {
+            position: fixed;
+            pointer-events: none;
+            z-index: 999;
+            display: grid;
+            gap: 3px;
+            transform-origin: center;
+            display: none;
+        }
+        #drag-clone .p-cell { width: 22px; height: 22px; border-radius: 4px; }
+
+        /* ── Game Over Overlay ───────────────────────────────── */
+        #overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(5,8,15,0.85);
+            backdrop-filter: blur(8px);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            gap: 20px;
+        }
+        #overlay.visible { display: flex; }
+        #overlay h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            color: var(--glow-r);
+            text-shadow: 0 0 30px var(--glow-r);
+            animation: shake .4s ease;
+        }
+        #overlay p { opacity: 0.6; font-size: 0.9rem; text-align: center; line-height: 1.7; }
+        #overlay .final-score {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3rem;
+            font-weight: 900;
+            color: var(--glow-b);
+            text-shadow: 0 0 30px var(--glow-b);
+        }
+        #restart-btn {
+            background: linear-gradient(135deg, #00eaff22, #00eaff11);
+            border: 1px solid #00eaff66;
+            color: var(--glow-b);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            letter-spacing: 0.15em;
+            padding: 14px 36px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-shadow: 0 0 10px var(--glow-b);
+            box-shadow: 0 0 20px #00eaff22;
+            transition: all .2s;
+        }
+        #restart-btn:hover { background: linear-gradient(135deg, #00eaff44, #00eaff22); transform: scale(1.04); }
+
+        /* floating score popup */
+        .score-popup {
+            position: fixed;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 12px var(--glow-b);
+            pointer-events: none;
+            z-index: 200;
+            animation: fade-score .8s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <div class="score-box">
+        <div class="score-label">SCORE</div>
+        <div class="score-value" id="score-val">0</div>
+    </div>
+    <div class="title">BLOCK<br>BLAST</div>
+    <div class="score-box">
+        <div class="score-label">BEST</div>
+        <div class="score-value" id="best-val">0</div>
+    </div>
+</div>
+
+<div id="grid-wrap">
+    <div id="grid"></div>
+</div>
+
+<div id="tray"></div>
+
+<div id="drag-clone"></div>
+
+<div id="overlay">
+    <h2>GAME OVER</h2>
+    <div class="final-score" id="final-score">0</div>
+    <p>Kein Platz mehr für<br>die nächsten Stücke.</p>
+    <button id="restart-btn" onclick="startGame()">NEU STARTEN</button>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────
+const gridEl    = document.getElementById('grid');
+const trayEl    = document.getElementById('tray');
+const scoreEl   = document.getElementById('score-val');
+const bestEl    = document.getElementById('best-val');
+const overlay   = document.getElementById('overlay');
+const finalEl   = document.getElementById('final-score');
+const dragClone = document.getElementById('drag-clone');
+
+let score     = 0;
+let bestScore = parseInt(localStorage.getItem('blockBest') || '0');
+let grid      = [];
+let pieces    = []; // array of shape objects or null
+
+// ── Shapes ───────────────────────────────────────────────────
+const SHAPES = [
+    { d: [[1,1],[1,1]],         c: 'c-blue'   },
+    { d: [[1,1,1,1]],           c: 'c-purple' },
+    { d: [[1],[1],[1],[1]],     c: 'c-purple' },
+    { d: [[1,1,1],[0,1,0]],     c: 'c-rose'   },
+    { d: [[0,1,0],[1,1,1]],     c: 'c-rose'   },
+    { d: [[1,0],[1,0],[1,1]],   c: 'c-amber'  },
+    { d: [[0,1],[0,1],[1,1]],   c: 'c-amber'  },
+    { d: [[1,1],[1,0],[1,0]],   c: 'c-blue'   },
+    { d: [[1,1],[0,1],[0,1]],   c: 'c-blue'   },
+    { d: [[1],[1],[1]],         c: 'c-blue'   },
+    { d: [[1,1,1]],             c: 'c-rose'   },
+    { d: [[1,1],[1,1],[1,1]],   c: 'c-amber'  },
+    { d: [[1]],                 c: 'c-purple' },
+    { d: [[1,1],[1,1]],         c: 'c-rose'   },
+];
+
+// ── Init ─────────────────────────────────────────────────────
+function startGame() {
+    score = 0;
+    grid  = Array.from({length:8}, () => Array(8).fill(null));
+    overlay.classList.remove('visible');
+    buildGrid();
+    updateScore();
+    bestEl.innerText = bestScore;
+    spawnTray();
+}
+
+function buildGrid() {
+    gridEl.innerHTML = '';
+    for (let i = 0; i < 64; i++) {
+        const c = document.createElement('div');
+        c.className = 'cell';
+        gridEl.appendChild(c);
+    }
+}
+
+// ── Tray ─────────────────────────────────────────────────────
+function spawnTray() {
+    trayEl.innerHTML = '';
+    pieces = [null, null, null];
+    for (let i = 0; i < 3; i++) {
+        pieces[i] = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+        buildSlot(i);
+    }
+    if (!anyMovePossible()) setTimeout(gameOver, 300);
+}
+
+function buildSlot(idx) {
+    const slot = document.createElement('div');
+    slot.className = 'piece-slot anim-pop';
+    slot.style.animationDelay = (idx * 0.07) + 's';
+    slot.dataset.idx = idx;
+
+    const sObj = pieces[idx];
+    if (sObj) {
+        const p = buildPieceEl(sObj, 16);
+        slot.appendChild(p);
+        addDrag(slot, sObj, idx);
+    } else {
+        slot.classList.add('empty');
+    }
+    trayEl.appendChild(slot);
+}
+
+function buildPieceEl(sObj, cellSize) {
+    const p = document.createElement('div');
+    p.className = 'piece';
+    p.style.gridTemplateColumns = `repeat(${sObj.d[0].length}, ${cellSize}px)`;
+    sObj.d.forEach(row => row.forEach(v => {
+        const c = document.createElement('div');
+        c.className = v ? `p-cell ${sObj.c}` : 'p-cell';
+        if (!v) c.style.opacity = '0';
+        p.appendChild(c);
+    }));
+    return p;
+}
+
+// ── Drag ─────────────────────────────────────────────────────
+let activeDrag = null;
+
+function addDrag(slot, sObj, slotIdx) {
+    slot.addEventListener('touchstart',  e => onTouchStart(e, sObj, slotIdx), {passive: false});
+    slot.addEventListener('touchmove',   e => onTouchMove(e),                 {passive: false});
+    slot.addEventListener('touchend',    e => onTouchEnd(e),                  {passive: false});
+    slot.addEventListener('touchcancel', e => cancelDrag(),                   {passive: false});
+}
+
+function onTouchStart(e, sObj, slotIdx) {
+    e.preventDefault();
+    activeDrag = { sObj, slotIdx };
+
+    // Build floating clone
+    dragClone.innerHTML = '';
+    dragClone.style.gridTemplateColumns = `repeat(${sObj.d[0].length}, 22px)`;
+    dragClone.style.display = 'grid';
+    sObj.d.forEach(row => row.forEach(v => {
+        const c = document.createElement('div');
+        c.className = v ? `p-cell ${sObj.c}` : 'p-cell';
+        if (!v) c.style.opacity = '0';
+        dragClone.appendChild(c);
+    }));
+
+    moveDragClone(e.touches[0].clientX, e.touches[0].clientY);
+}
+
+function onTouchMove(e) {
+    if (!activeDrag) return;
+    e.preventDefault();
+    moveDragClone(e.touches[0].clientX, e.touches[0].clientY);
+    updatePreview(e.touches[0].clientX, e.touches[0].clientY);
+}
+
+function onTouchEnd(e) {
+    if (!activeDrag) return;
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    const { r, c } = getGridCell(t.clientX, t.clientY);
+    const placed = (r !== null) && tryPlace(activeDrag.sObj, r, c, activeDrag.slotIdx);
+
+    if (!placed) {
+        // Animate rejection
+        const slot = trayEl.children[activeDrag.slotIdx];
+        if (slot) { slot.style.animation = 'shake .3s ease'; setTimeout(() => slot.style.animation = '', 300); }
+    }
+
+    clearPreview();
+    dragClone.style.display = 'none';
+    activeDrag = null;
+}
+
+function cancelDrag() {
+    clearPreview();
+    dragClone.style.display = 'none';
+    activeDrag = null;
+}
+
+function moveDragClone(x, y) {
+    const cols = activeDrag.sObj.d[0].length;
+    const rows = activeDrag.sObj.d.length;
+    const cellW = 22 + 3;
+    const offsetX = (cols * cellW) / 2;
+    const offsetY = (rows * cellW) + 30; // above finger
+    dragClone.style.left = (x - offsetX) + 'px';
+    dragClone.style.top  = (y - offsetY) + 'px';
+}
+
+// ── Grid hit-test ─────────────────────────────────────────────
+function getGridCell(x, y) {
+    // Temporarily hide clone so elementFromPoint hits the grid
+    dragClone.style.display = 'none';
+    const el = document.elementFromPoint(x, y);
+    dragClone.style.display = 'grid';
+    if (!el || !el.classList.contains('cell')) return { r: null, c: null };
+    const idx = Array.from(gridEl.children).indexOf(el);
+    return { r: Math.floor(idx / 8), c: idx % 8 };
+}
+
+// ── Preview highlight ─────────────────────────────────────────
+function clearPreview() {
+    Array.from(gridEl.children).forEach(c => c.classList.remove('preview', 'preview-bad'));
+}
+
+function updatePreview(x, y) {
+    clearPreview();
+    if (!activeDrag) return;
+    const { r, c } = getGridCell(x, y);
+    if (r === null) return;
+    const sObj = activeDrag.sObj;
+    const fits = canPlace(sObj, r, c);
+    sObj.d.forEach((row, dr) => row.forEach((v, dc) => {
+        if (!v) return;
+        const nr = r + dr, nc = c + dc;
+        if (nr > 7 || nc > 7) return;
+        gridEl.children[nr * 8 + nc].classList.add(fits ? 'preview' : 'preview-bad');
+    }));
+}
+
+// ── Place logic ───────────────────────────────────────────────
+function canPlace(sObj, r, c) {
+    for (let dr = 0; dr < sObj.d.length; dr++) {
+        for (let dc = 0; dc < sObj.d[0].length; dc++) {
+            if (!sObj.d[dr][dc]) continue;
+            const nr = r + dr, nc = c + dc;
+            if (nr > 7 || nc > 7 || grid[nr][nc]) return false;
+        }
+    }
+    return true;
+}
+
+function tryPlace(sObj, r, c, slotIdx) {
+    if (!canPlace(sObj, r, c)) return false;
+
+    sObj.d.forEach((row, dr) => row.forEach((v, dc) => {
+        if (!v) return;
+        const nr = r + dr, nc = c + dc;
+        grid[nr][nc] = sObj.c;
+        const cell = gridEl.children[nr * 8 + nc];
+        cell.className = `cell ${sObj.c} anim-place`;
+    }));
+
+    score += 10;
+    updateScore();
+
+    // Mark slot empty
+    pieces[slotIdx] = null;
+    const slot = trayEl.children[slotIdx];
+    if (slot) { slot.innerHTML = ''; slot.classList.add('empty'); slot.style.pointerEvents = 'none'; }
+
+    setTimeout(checkLines, 220);
+
+    // Respawn if all 3 used
+    if (pieces.every(p => p === null)) {
+        setTimeout(spawnTray, 500);
+    } else {
+        setTimeout(() => {
+            if (!anyMovePossible()) gameOver();
+        }, 500);
+    }
+
+    return true;
+}
+
+// ── Line clear ────────────────────────────────────────────────
+function checkLines() {
+    const rowsToClear = [], colsToClear = [];
+    for (let i = 0; i < 8; i++) {
+        if (grid[i].every(v => v))                  rowsToClear.push(i);
+        if (grid.map(r => r[i]).every(v => v))      colsToClear.push(i);
+    }
+    if (!rowsToClear.length && !colsToClear.length) return;
+
+    const cells = new Set();
+    rowsToClear.forEach(r => { for (let c = 0; c < 8; c++) cells.add(r * 8 + c); });
+    colsToClear.forEach(c => { for (let r = 0; r < 8; r++) cells.add(r * 8 + c); });
+
+    cells.forEach(idx => {
+        const r = Math.floor(idx / 8), c = idx % 8;
+        grid[r][c] = null;
+        const cell = gridEl.children[idx];
+        cell.classList.add('anim-clear');
+        setTimeout(() => { cell.className = 'cell'; }, 450);
+    });
+
+    const lines = rowsToClear.length + colsToClear.length;
+    const bonus = lines * 100 + (lines > 1 ? lines * 50 : 0); // combo bonus
+    score += bonus;
+    updateScore();
+    showScorePopup(bonus);
+}
+
+function showScorePopup(pts) {
+    const el = document.createElement('div');
+    el.className = 'score-popup';
+    el.innerText = '+' + pts;
+    const rect = gridEl.getBoundingClientRect();
+    el.style.left = (rect.left + rect.width / 2 - 30) + 'px';
+    el.style.top  = (rect.top + rect.height / 2) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 800);
+}
+
+// ── Score ─────────────────────────────────────────────────────
+function updateScore() {
+    scoreEl.innerText = score;
+    if (score > bestScore) {
+        bestScore = score;
+        bestEl.innerText = bestScore;
+        localStorage.setItem('blockBest', bestScore);
+    }
+}
+
+// ── Game Over check ───────────────────────────────────────────
+function anyMovePossible() {
+    return pieces.some(sObj => {
+        if (!sObj) return true; // empty slot = no constraint
+        for (let r = 0; r < 8; r++)
+            for (let c = 0; c < 8; c++)
+                if (canPlace(sObj, r, c)) return true;
+        return false;
+    });
+}
+
+function gameOver() {
+    finalEl.innerText = score;
+    overlay.classList.add('visible');
+}
+
+// ── Start ─────────────────────────────────────────────────────
+startGame();
+</script>
+</body>
+</html>
